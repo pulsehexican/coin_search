@@ -1,7 +1,7 @@
 {
 	"ETH": {
 		"network_id": 1,
-		"rpc": "https://winter-damp-slug.discover.quiknode.pro/***YOUR*API*KEY*****",
+		"rpc": "https://ethereum.publicnode.com",
 		"decimals":18
 	},
 	"ETHW": {
