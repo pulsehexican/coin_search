@@ -1,27 +1,17 @@
 {
-	"ETH": {
-		"network_id": 1,
-		"rpc": "https://ethereum.publicnode.com",
-		"decimals":18
-	},
 	"ETHW": {
 		"network_id": 10001,
 		"rpc": "https://mainnet.ethereumpow.org",
 		"decimals":18
 	},
+	"ETH": {
+		"network_id": 1,
+		"rpc": "https://rpc.ankr.com/eth",
+		"decimals":18
+	},
 	"ETHF": {
 		"network_id": 513100,
 		"rpc": "https://rpc.etherfair.org",
-		"decimals":18
-	},
-	"Flare": {
-		"network_id": 14,
-		"rpc": "https://flare-api.flare.network/ext/C/rpc",
-		"decimals":18
-	},
-	"Fantom": {
-		"network_id": 2,
-		"rpc": "https://rpc.fantom.network",
 		"decimals":18
 	}
 }
