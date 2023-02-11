@@ -1,10 +1,10 @@
 import os
 from web3 import Web3
-#import web3
 import json
 import contracts as contracts
 import requests
 import ctypes
+import time
 libgcc_s = ctypes.CDLL('libgcc_s.so.1')
 from threading import Thread
 
@@ -57,7 +57,8 @@ def get_dict_from_hex_stake(hex_stake):
 		"Hex_staked":(round(hex_stake[1]/10**8,2)),		
 		"T-shares":round(hex_stake[2]/10**12,2),
 		"stake_start_on_hex_day":int(hex_stake[3]),
-		"stake_days":int(hex_stake[4])
+		"stake_days":int(hex_stake[4]),
+		"stake_ends_in_days":0
 	}
 	return(stake)
 
@@ -66,6 +67,10 @@ def stake_find(*args):
 	address=args[0]
 	hsiIndex=args[1]-1
 	stake_type=args[2]
+	if stake_type==2:
+		token_id=hsi_contract.functions.tokenOfOwnerByIndex(address,hsiIndex).call()
+		hsi_address = hsi_contract.functions.hsiToken(token_id).call()
+		stake = hex_contract.functions.stakeLists(hsi_address,0).call()	
 	if stake_type==1:
 		hsi_address = hsi_contract.functions.hsiLists(address,hsiIndex).call()
 		stake = hex_contract.functions.stakeLists(hsi_address,0).call()
@@ -73,40 +78,44 @@ def stake_find(*args):
 		stake=hex_contract.functions.stakeLists(address,hsiIndex).call()
 	stake_dict=get_dict_from_hex_stake(stake)
 	days_to_end=calc_days_to_end_HexStake(stake_dict)
-	if days_to_end>0:
-		print(f"{stake_dict} stake ends in days:{days_to_end}")
-	else:
-		print(f"{stake_dict} stake already ended in:{-days_to_end} days !!!!!!!!!!!!!!!!!!!!!!!!")
+	stake_dict['stake_ends_in_days']=days_to_end
+	if stake_type==2:
+		stakes_tokenized.append(stake_dict)	
+	elif stake_type==1:
+		stakes_hsi.append(stake_dict)
+	elif stake_type==0:
+		stakes_native.append(stake_dict)
 
 def get_Stakes_threads(hex_contract,hsi_contract,address):
 	#stakes_count=hsi_contract.functions.stakeCount(address).call()
 	hsi_count=hsi_contract.functions.hsiCount(address).call()
 	native_count=hex_contract.functions.stakeCount(address).call()
-	native_list=[]
-	hsi_list=[]
-	print(f"native stakes: {native_count}")
+	tokenized_count=hsi_contract.functions.balanceOf(address).call()
+	print(f"amount of native stakes: {native_count}")
 	threads_native=['1']
 	for nativec in range(1,native_count+1,1):
 		threads_native.append(Thread(target=stake_find, args=[address,nativec,0]))
 		threads_native[nativec].start()
 	for nativec in range(1,native_count+1,1):
 		threads_native[nativec].join()
-	print(f"hsi stakes: {hsi_count}")
+	print(f"amount of hsi detokenized stakes: {hsi_count}")
 	threads_hsi=['1']
-	
 	for hsic in range(1,hsi_count+1,1):
 		threads_hsi.append(Thread(target=stake_find, args=[address,hsic,1]))
 		threads_hsi[hsic].start()
 	for hsic in range(1,hsi_count+1,1):
 		threads_hsi[hsic].join()
+	print(f"amount of hsi tokenized stakes: {tokenized_count}")
+	threads_tokenized=['1']
+	for tokenizedc in range(1,tokenized_count+1,1):
+		threads_tokenized.append(Thread(target=stake_find, args=[address,tokenizedc,2]))
+		threads_tokenized[tokenizedc].start()
+	for tokenizedc in range(1,tokenized_count+1,1):
+		threads_tokenized[tokenizedc].join()
 
 def calc_days_to_end_HexStake(hex_stake_dict):
 	hex_stake_end_on_day=hex_stake_dict['stake_start_on_hex_day']+hex_stake_dict['stake_days']
 	days_till_hex_stake_end = hex_stake_end_on_day-current_hex_day-1
-	#if days_till_hex_stake_end>0:
-	#	print(f"hex stake will end in {days_till_hex_stake_end} days")
-	#else:
-	#	print(f"hex stake already ended {-days_till_hex_stake_end} ago !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
 	return(days_till_hex_stake_end)
 
 def get_balance_hedron(*args):
@@ -141,6 +150,7 @@ with open("addresses") as f:
 	addresses = f.readlines()
 
 
+
 balances=[0,0,0]
 
 list_networks_adresses=[]
@@ -162,6 +172,9 @@ for network, data in network_data.items():
 	current_hdrn_day= icsa_contract.functions.currentDay().call()
 	print(f"-------------------------------------{network}-----------------------------------")
 	for address in addresses:
+		stakes_native=[]
+		stakes_hsi=[]
+		stakes_tokenized=[]		
 		try:
 			address = address.strip()
 			address = Web3.toChecksumAddress(address)
@@ -180,6 +193,25 @@ for network, data in network_data.items():
 				print(f"ICSA: {format_number(round(icsa_balance/10**(icsa_decimals),2))}")
 				print(f"HEX: {format_number(round(hex_balance/10**(hex_decimals),2))}")
 				get_Stakes_threads(hex_contract,hsi_contract,address)
+				print("\nnative stakes:")
+				for stake in stakes_native:
+					if stake['stake_ends_in_days']>0:
+						print(f"{stake}")
+					else:
+						print(f"{stake} stake already ended in:{-stake['stake_ends_in_days']} days !!!!!!")
+				print("\nhsi stakes:")
+				for stake in stakes_hsi:
+					if stake['stake_ends_in_days']>0:
+						print(f"{stake}")
+					else:
+						print(f"{stake} stake already ended in:{-stake['stake_ends_in_days']} days !!!!!!")
+				print("\ntokenized stakes:")
+				for stake in stakes_tokenized:
+					if stake['stake_ends_in_days']>0:
+						print(f"{stake}")
+					else:
+						print(f"{stake} stake already ended in:{-stake['stake_ends_in_days']} days !!!!!!")						
+				print("")
 				calc_days_to_end_HdrnIcsa_stake(icsa_contract,address,current_hdrn_day)
 		except Exception as err:
 			print("exception error : ",err)
